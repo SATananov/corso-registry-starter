@@ -14,8 +14,15 @@
   </div>
   <nav class="nav">
     <a href="index.html">Начало</a>
+
+    <!-- вижда се само за админ -->
+    <a data-if-admin href="admin.html">Админ</a>
+
+    <!-- виждат се само за НЕлогнати -->
     <a data-if-anon href="login.html">Вход</a>
     <a data-if-anon class="btn" href="register.html">Регистрация</a>
+
+    <!-- виждат се само за логнати -->
     <a data-if-authed href="profile.html">Профил</a>
     <a data-if-authed href="#" data-logout>Изход</a>
   </nav>
@@ -45,9 +52,13 @@
   import { supabase } from './js/api.js';
   import { bootstrap } from './js/app.js';
   bootstrap();
+
   const el = document.getElementById('ping');
   try {
-    const { error } = await supabase.from('profiles').select('id', { head:true, count:'exact' }).limit(1);
+    const { error } = await supabase
+      .from('profiles')
+      .select('id', { head: true, count: 'exact' })
+      .limit(1);
     el.textContent = error ? ('грешка: ' + error.message) : 'OK';
   } catch (e) {
     el.textContent = 'грешка: ' + (e?.message || e);
@@ -55,3 +66,4 @@
 </script>
 </body>
 </html>
+
