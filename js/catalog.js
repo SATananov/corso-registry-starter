@@ -19,12 +19,12 @@ async function load(q=''){
 
     if (!rows.length){ list.innerHTML = '<div class="muted">Няма резултати.</div>'; return; }
 
-    // дръпни имената на собствениците
+    // имена на собствениците
     const map = await fetchProfilesMap(rows.map(r=>r.owner_id));
 
     list.innerHTML = rows.map(r => `
       <article class="item">
-        <h3>${esc(r.title)}</h3>
+        <h3><a href="details.html?id=${encodeURIComponent(r.id)}">${esc(r.title)}</a></h3>
         <span class="muted">${new Date(r.created_at).toLocaleString()} · от ${esc(map[r.owner_id] || '—')}</span>
         <p>${esc(short(r.description))}</p>
       </article>
