@@ -1,143 +1,200 @@
--- Enable needed extensions
+-- Extensions
 create extension if not exists "pgcrypto";
 
--- PROFILES (linked to auth.users)
+-- PROFILES
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
   username text unique not null,
-  display_name text,
-  city text,
-  role text check (role in ('user','admin')) default 'user',
+  display_name text not null,
+  role text not null default 'user' check (role in ('user','admin')),
   created_at timestamptz default now()
 );
+
 alter table public.profiles enable row level security;
 
--- PUBLIC read of minimal profile info (optional)
-create policy "profiles public read"
-on public.profiles for select
-to anon, authenticated
-using (true);
+drop policy if exists "profiles public read"  on public.profiles;
+drop policy if exists "profiles self insert"  on public.profiles;
+drop policy if exists "profiles self update"  on public.profiles;
 
--- DOGS
-create table if not exists public.dogs (
+create policy "profiles public read"
+  on public.profiles
+  for select
+  using (true);
+
+create policy "profiles self insert"
+  on public.profiles
+  for insert
+  with check (auth.uid() = id);
+
+create policy "profiles self update"
+  on public.profiles
+  for update
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
+
+-- Trigger: auto-create profile when a new auth user is created
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public as $$
+begin
+  insert into public.profiles (id,email,username,display_name,role)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'username', split_part(new.email,'@',1)),
+    coalesce(new.raw_user_meta_data->>'display_name',''),
+    'user'
+  )
+  on conflict (id) do nothing;
+  return new;
+end $$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- LISTINGS (generic; може да кръстиш "dogs" ако искаш)
+create table if not exists public.listings (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade,
-  name text not null,
-  sex text check (sex in ('male','female')) not null default 'male',
-  date_of_birth date,
-  color text,
-  city text,
-  microchip text,
-  pedigree text,
-  cover_path text,
+  title text not null,
+  description text,
   status text not null default 'draft' check (status in ('draft','pending','approved','rejected')),
-  rejection_reason text,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
-alter table public.dogs enable row level security;
 
--- RLS for dogs
--- Anyone can read approved
-create policy "dogs: public read approved"
-on public.dogs for select
-to anon, authenticated
-using (status = 'approved');
+alter table public.listings enable row level security;
 
--- Owners can read their own non-approved
-create policy "dogs: owner read own"
-on public.dogs for select
-to authenticated
-using (owner_id = auth.uid());
+drop policy if exists "listings public read approved" on public.listings;
+drop policy if exists "listings owner write"           on public.listings;
+drop policy if exists "listings admin all"             on public.listings;
 
--- Owners can insert
-create policy "dogs: owner insert"
-on public.dogs for insert
-to authenticated
-with check (owner_id = auth.uid());
+create policy "listings public read approved"
+  on public.listings
+  for select
+  using (status = 'approved');
 
--- Owners can update their own
-create policy "dogs: owner update own"
-on public.dogs for update
-to authenticated
-using (owner_id = auth.uid())
-with check (owner_id = auth.uid());
+create policy "listings owner write"
+  on public.listings
+  for insert
+  with check (auth.uid() = owner_id);
 
--- Admin can manage all
-create policy "dogs: admin all"
-on public.dogs
-as permissive
-for all
-to authenticated
-using ( exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin') )
-with check ( exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin') );
+create policy "listings owner update"
+  on public.listings
+  for update
+  using (auth.uid() = owner_id)
+  with check (auth.uid() = owner_id);
 
--- PHOTOS
+create policy "listings owner delete"
+  on public.listings
+  for delete
+  using (auth.uid() = owner_id);
+
+-- admins can do everything
+create policy "listings admin all"
+  on public.listings
+  to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role='admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role='admin'));
+
+-- PHOTOS table (paths point to Storage objects)
 create table if not exists public.photos (
   id bigserial primary key,
-  dog_id uuid not null references public.dogs(id) on delete cascade,
-  path text not null,
+  listing_id uuid not null references public.listings(id) on delete cascade,
+  path text not null unique,
   created_at timestamptz default now()
 );
+
 alter table public.photos enable row level security;
 
--- Public can read photos of approved dogs
-create policy "photos: public read approved"
-on public.photos for select
-to anon, authenticated
-using (
-  exists (select 1 from public.dogs d where d.id = photos.dog_id and d.status = 'approved')
-);
+drop policy if exists "photos public read via approved parent" on public.photos;
+drop policy if exists "photos owner write"                     on public.photos;
+drop policy if exists "photos admin all"                       on public.photos;
 
--- Owners can read photos of their dogs
-create policy "photos: owner read own"
-on public.photos for select
-to authenticated
-using ( exists (select 1 from public.dogs d where d.id = photos.dog_id and d.owner_id = auth.uid()) );
+create policy "photos public read via approved parent"
+  on public.photos
+  for select
+  using (
+    exists (
+      select 1 from public.listings l
+      where l.id = photos.listing_id and l.status = 'approved'
+    )
+  );
 
--- Owners can insert / delete own
-create policy "photos: owner insert"
-on public.photos for insert
-to authenticated
-with check ( exists (select 1 from public.dogs d where d.id = photos.dog_id and d.owner_id = auth.uid()) );
+create policy "photos owner write"
+  on public.photos
+  for insert
+  with check (
+    exists (
+      select 1 from public.listings l
+      where l.id = photos.listing_id and l.owner_id = auth.uid()
+    )
+  );
 
-create policy "photos: owner delete"
-on public.photos for delete
-to authenticated
-using ( exists (select 1 from public.dogs d where d.id = photos.dog_id and d.owner_id = auth.uid()) );
+create policy "photos owner update"
+  on public.photos
+  for update
+  using (
+    exists (
+      select 1 from public.listings l
+      where l.id = photos.listing_id and l.owner_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.listings l
+      where l.id = photos.listing_id and l.owner_id = auth.uid()
+    )
+  );
 
--- Admin full access
-create policy "photos: admin all"
-on public.photos
-as permissive
-for all
-to authenticated
-using ( exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin') )
-with check ( exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin') );
+create policy "photos owner delete"
+  on public.photos
+  for delete
+  using (
+    exists (
+      select 1 from public.listings l
+      where l.id = photos.listing_id and l.owner_id = auth.uid()
+    )
+  );
 
--- STORAGE bucket policies (dog-photos)
--- Create bucket "dog-photos" from Storage UI, then:
--- Allow owners to upload to their folder user_id/dog_id/*
-create policy "storage: upload own path"
-on storage.objects for insert
-to authenticated
-with check (
-  bucket_id = 'dog-photos'
-  and (storage.foldername(name))[1] = auth.uid()::text
-);
+create policy "photos admin all"
+  on public.photos
+  to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role='admin'))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role='admin'));
 
--- Owners can update/delete own objects
-create policy "storage: owner modify own"
-on storage.objects for update using (
-  bucket_id = 'dog-photos' and (storage.foldername(name))[1] = auth.uid()::text
-);
-create policy "storage: owner delete own"
-on storage.objects for delete using (
-  bucket_id = 'dog-photos' and (storage.foldername(name))[1] = auth.uid()::text
-);
+-- STORAGE bucket (public read; write само в собствена папка userId/...)
+select storage.create_bucket('photos', public := true);
 
--- Public can read objects whose dog is approved (we sign URLs anyway; policy optional)
-create policy "storage: public select"
-on storage.objects for select
-to anon, authenticated
-using ( bucket_id = 'dog-photos' );
+-- Storage policies
+drop policy if exists "photos public read" on storage.objects;
+drop policy if exists "photos user write own" on storage.objects;
+drop policy if exists "photos user update own" on storage.objects;
+drop policy if exists "photos user delete own" on storage.objects;
+
+create policy "photos public read"
+  on storage.objects
+  for select
+  using (bucket_id = 'photos');
+
+create policy "photos user write own"
+  on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'photos'
+    and split_part(name,'/',1) = auth.uid()::text
+  );
+
+create policy "photos user update own"
+  on storage.objects
+  for update to authenticated
+  using (bucket_id='photos' and split_part(name,'/',1) = auth.uid()::text);
+
+create policy "photos user delete own"
+  on storage.objects
+  for delete to authenticated
+  using (bucket_id='photos' and split_part(name,'/',1) = auth.uid()::text);
