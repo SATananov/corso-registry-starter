@@ -5,7 +5,7 @@ bootstrap();
 await requireAuth('login.html');
 
 const wrap = document.getElementById('wrap');
-function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&gt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
 async function load(){
   wrap.textContent = 'Зареждам…';
