@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Моите записи</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .table{width:100%;border-collapse:collapse}
+    .table th,.table td{border-bottom:1px solid var(--border);padding:10px 8px;vertical-align:top}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{padding:6px 10px;border-radius:10px;border:1px solid var(--border);background:#101724;color:var(--text);cursor:pointer}
+    .pill.save{background:#1d6933;border-color:#2b8c48;color:#eafff0}
+    .pill.delete{background:#6c1a1a;border-color:#a22b2b;color:#ffecec}
+    .pill.photos{background:#203654;border-color:#2f4a77;color:#e0eeff}
+    .muted-small{color:var(--muted);font-size:12px}
+    .editable{width:100%;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:#0e1420;color:var(--text)}
+  </style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><a href="index.html"><strong>Listings Starter</strong></a> <span class="tag">Моите</span></div>
+  <nav class="nav">
+    <a href="index.html">Начало</a>
+    <a href="catalog.html">Каталог</a>
+    <a data-if-admin href="admin.html">Админ</a>
+
+    <a data-if-authed href="new.html" class="btn">Нов запис</a>
+    <a data-if-authed href="#" data-logout>Изход</a>
+    <a data-if-anon href="login.html" class="btn">Вход</a>
+  </nav>
+</header>
+
+<main class="container">
+  <section class="card">
+    <h1>Моите записи</h1>
+    <div id="wrap">Зареждам…</div>
+  </section>
+</main>
+
+<script type="module" src="js/app.js"></script>
+<script type="module" src="js/my.js"></script>
+</body>
+</html>
