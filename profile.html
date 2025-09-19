@@ -29,19 +29,16 @@
   bootstrap();
   await requireAuth('login.html');
 
-  // покажи текущия потребител
   const { data } = await supabase.auth.getSession();
   const user = data.session?.user;
-  const who = document.getElementById('whoami');
 
-  // дръпни профила (username, role)
   const { data: prof } = await supabase
     .from('profiles')
     .select('username, display_name, role, email')
     .eq('id', user.id)
     .maybeSingle();
 
-  who.innerHTML = `
+  document.getElementById('whoami').innerHTML = `
     <div><strong>Име:</strong> ${prof?.display_name || '—'}</div>
     <div><strong>Потребителско име:</strong> ${prof?.username || '—'}</div>
     <div><strong>Email:</strong> ${prof?.email || user.email || '—'}</div>
