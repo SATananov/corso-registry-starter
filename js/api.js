@@ -1,226 +1,133 @@
-// js/api.js — Supabase клиент + helpers за auth/профил/листинги/снимки
+// js/api.js
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const SUPABASE_URL = 'https://wwdshtnrduxauwxtgadl.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3ZHNodG5yZHV4YXV3eHRnYWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxODQ5NDUsImV4cCI6MjA3Mzc2MDk0NX0.R_ITamQoP4G6webhXg-q81iywl3nzmysRBDx6YwJKNw';
+export const supabase = createClient(
+  'https://wwdshtnrduxauwxtgadl.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3ZHNodG5yZHV4YXV3eHRnYWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxODQ5NDUsImV4cCI6MjA3Mzc2MDk0NX0.R_ITamQoP4G6webhXg-q81iywl3nzmysRBDx6YwJKNw'
+);
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-});
+// ---------- AUTH ----------
+export async function getSession(){ return (await supabase.auth.getSession()).data.session; }
+export async function currentUser(){ return (await supabase.auth.getUser()).data.user; }
+export function onAuthChanged(cb){ return supabase.auth.onAuthStateChange((_e, sess)=>cb(sess)); }
+export async function signOut(){ await supabase.auth.signOut(); }
 
-// ========== Session/Auth ==========
-export async function getSession() {
-  const { data } = await supabase.auth.getSession();
-  return { session: data.session, user: data.session?.user ?? null };
+// ---------- PROFILES ----------
+export async function getMyProfile(){
+  const u = await currentUser(); if(!u) return null;
+  const { data, error } = await supabase.from('profiles')
+    .select('id,email,username,display_name,role')
+    .eq('id', u.id).maybeSingle();
+  if(error) throw error;
+  return data;
 }
-export async function logout() { await supabase.auth.signOut(); }
+export async function upsertMyProfile({ display_name, username }){
+  const u = await currentUser(); if(!u) throw new Error('Not authenticated');
+  const row = { id: u.id, email: u.email, display_name, username };
+  const { error } = await supabase.from('profiles').upsert(row, { onConflict:'id' });
+  if(error) throw error;
+}
+export async function fetchProfilesMap(ids){
+  const uniq = [...new Set((ids||[]).filter(Boolean))];
+  if(!uniq.length) return {};
+  const { data, error } = await supabase.from('profiles')
+    .select('id,display_name,username').in('id', uniq);
+  if(error) throw error;
+  const m={}; for(const r of data) m[r.id] = r.display_name || r.username || r.id.slice(0,8)+'…';
+  return m;
+}
 
-export async function register({ display_name, username, email, password }) {
-  const { data, error } = await supabase.auth.signUp({
-    email, password,
-    options: { data: { username, display_name } }
-  });
-  if (error) throw error;
-
-  const user = data.user;
-  if (user) {
-    const { error: e2 } = await supabase
-      .from('profiles')
-      .upsert({ id: user.id, email, username, display_name, role: 'user' }, { onConflict: 'id' });
-    if (e2) console.warn('profiles upsert warning:', e2.message);
+// ---------- LISTINGS ----------
+export async function createListing({ title, description }){
+  const u = await currentUser(); if(!u) throw new Error('Not authenticated');
+  const { error } = await supabase.from('listings').insert([{ title, description }]);
+  if(error) throw error;
+}
+export async function fetchMyListings(){
+  const u = await currentUser(); if(!u) throw new Error('Not authenticated');
+  const { data, error } = await supabase.from('listings')
+    .select('*').eq('owner_id', u.id).order('created_at', { ascending:false });
+  if(error) throw error;
+  return data;
+}
+export async function updateMyListing(id, fields){
+  const u = await currentUser(); if(!u) throw new Error('Not authenticated');
+  const { error } = await supabase.from('listings')
+    .update(fields).eq('id', id).eq('owner_id', u.id);
+  if(error) throw error;
+}
+export async function deleteMyListing(id){
+  const u = await currentUser(); if(!u) throw new Error('Not authenticated');
+  // 1) изтрий файловете в bucket (ако има)
+  const { data: photos } = await supabase.from('photos').select('id,path').eq('listing_id', id);
+  if (photos?.length){
+    await supabase.storage.from('photos').remove(photos.map(p=>p.path));
+    await supabase.from('photos').delete().eq('listing_id', id);
   }
-  return user;
+  // 2) изтрий записа
+  const { error } = await supabase.from('listings').delete().eq('id', id).eq('owner_id', u.id);
+  if(error) throw error;
 }
-
-export async function loginWithUsername(username, password) {
-  const uname = String(username || '').trim();
-  const { data: prof, error: e1 } = await supabase
-    .from('profiles')
-    .select('email')
-    .ilike('username', uname)
-    .maybeSingle();
-  if (e1) throw e1;
-  if (!prof) throw new Error('Потребител не е намерен.');
-  const { data, error } = await supabase.auth.signInWithPassword({ email: prof.email, password });
-  if (error) throw error;
-  return data.user;
-}
-
-// ========== Profiles ==========
-export async function getMyProfile() {
-  const { data: u } = await supabase.auth.getUser();
-  const uid = u.user?.id;
-  if (!uid) return null;
-  const { data: prof } = await supabase
-    .from('profiles')
-    .select('id, email, username, display_name, role')
-    .eq('id', uid).maybeSingle();
-  return prof || null;
-}
-export async function fetchProfilesMap(ids = []) {
-  const uniq = Array.from(new Set(ids.filter(Boolean)));
-  if (!uniq.length) return {};
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, username, display_name')
-    .in('id', uniq);
-  if (error) throw error;
-  const map = {};
-  (data || []).forEach(p => { map[p.id] = p.display_name || p.username || p.id; });
-  return map;
-}
-
-// ========== Listings (admin) ==========
-export async function fetchPendingListings() {
-  const { data, error } = await supabase
-    .from('listings')
-    .select('id, owner_id, title, description, status, created_at')
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data || [];
-}
-export async function fetchAllListings(limit = 50) {
-  const { data, error } = await supabase
-    .from('listings')
-    .select('id, owner_id, title, description, status, created_at')
-    .order('created_at', { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return data || [];
-}
-export async function setListingStatus(id, status) {
-  const { error } = await supabase.from('listings').update({ status }).eq('id', id);
-  if (error) throw error;
-}
-
-// ========== Listings (public + create) ==========
-export async function createListing({ title, description }) {
-  const { data: u } = await supabase.auth.getUser();
-  const uid = u.user?.id;
-  if (!uid) throw new Error('Не си логнат.');
-
-  const { data, error } = await supabase
-    .from('listings')
-    .insert({ owner_id: uid, title, description, status: 'pending' })
-    .select('id')
-    .single();
-
-  if (error) throw error;
-  return data?.id;
-}
-
-export asy
-// js/api.js — Supabase клиент + helpers за auth/профил/листинги/снимки
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const SUPABASE_URL = 'https://wwdshtnrduxauwxtgadl.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3ZHNodG5yZHV4YXV3eHRnYWRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxODQ5NDUsImV4cCI6MjA3Mzc2MDk0NX0.R_ITamQoP4G6webhXg-q81iywl3nzmysRBDx6YwJKNw';
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-});
-
-// ========== Session/Auth ==========
-export async function getSession() {
-  const { data } = await supabase.auth.getSession();
-  return { session: data.session, user: data.session?.user ?? null };
-}
-export async function logout() { await supabase.auth.signOut(); }
-
-export async function register({ display_name, username, email, password }) {
-  const { data, error } = await supabase.auth.signUp({
-    email, password,
-    options: { data: { username, display_name } }
-  });
-  if (error) throw error;
-
-  const user = data.user;
-  if (user) {
-    const { error: e2 } = await supabase
-      .from('profiles')
-      .upsert({ id: user.id, email, username, display_name, role: 'user' }, { onConflict: 'id' });
-    if (e2) console.warn('profiles upsert warning:', e2.message);
+export async function fetchApprovedListings({ q='', limit=50, offset=0 }={}){
+  let qry = supabase.from('listings').select('*', { count:'exact' }).eq('status','approved')
+    .order('created_at', { ascending:false }).range(offset, offset+limit-1);
+  if(q && q.trim()){
+    const s = `%${q.trim()}%`;
+    // ако имаш GIN/fts – смени със to_tsvector; за basic: ilike на title/description
+    qry = qry.or(`title.ilike.${s},description.ilike.${s}`);
   }
-  return user;
+  const { data, error, count } = await qry;
+  if(error) throw error;
+  return { rows: data, count };
+}
+export async function fetchListingApproved(id){
+  const { data, error } = await supabase.from('listings').select('*')
+    .eq('id', id).eq('status','approved').maybeSingle();
+  if(error) throw error;
+  return data;
 }
 
-export async function loginWithUsername(username, password) {
-  const uname = String(username || '').trim();
-  const { data: prof, error: e1 } = await supabase
-    .from('profiles')
-    .select('email')
-    .ilike('username', uname)
-    .maybeSingle();
-  if (e1) throw e1;
-  if (!prof) throw new Error('Потребител не е намерен.');
-  const { data, error } = await supabase.auth.signInWithPassword({ email: prof.email, password });
-  if (error) throw error;
-  return data.user;
+// ---------- ADMIN ----------
+export async function fetchPendingListings(){
+  const { data, error } = await supabase.from('listings').select('*')
+    .eq('status','pending').order('created_at',{ascending:true});
+  if(error) throw error;
+  return data;
 }
-
-// ========== Profiles ==========
-export async function getMyProfile() {
-  const { data: u } = await supabase.auth.getUser();
-  const uid = u.user?.id;
-  if (!uid) return null;
-  const { data: prof } = await supabase
-    .from('profiles')
-    .select('id, email, username, display_name, role')
-    .eq('id', uid).maybeSingle();
-  return prof || null;
+export async function fetchAllListings(limit=100){
+  const { data, error } = await supabase.from('listings').select('*')
+    .order('created_at',{ascending:false}).limit(limit);
+  if(error) throw error;
+  return data;
 }
-export async function fetchProfilesMap(ids = []) {
-  const uniq = Array.from(new Set(ids.filter(Boolean)));
-  if (!uniq.length) return {};
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, username, display_name')
-    .in('id', uniq);
-  if (error) throw error;
-  const map = {};
-  (data || []).forEach(p => { map[p.id] = p.display_name || p.username || p.id; });
-  return map;
-}
-
-// ========== Listings (admin) ==========
-export async function fetchPendingListings() {
-  const { data, error } = await supabase
-    .from('listings')
-    .select('id, owner_id, title, description, status, created_at')
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data || [];
-}
-export async function fetchAllListings(limit = 50) {
-  const { data, error } = await supabase
-    .from('listings')
-    .select('id, owner_id, title, description, status, created_at')
-    .order('created_at', { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return data || [];
-}
-export async function setListingStatus(id, status) {
+export async function setListingStatus(id, status){
   const { error } = await supabase.from('listings').update({ status }).eq('id', id);
-  if (error) throw error;
+  if(error) throw error;
 }
 
-// ========== Listings (public + create) ==========
-export async function createListing({ title, description }) {
-  const { data: u } = await supabase.auth.getUser();
-  const uid = u.user?.id;
-  if (!uid) throw new Error('Не си логнат.');
+// ---------- PHOTOS ----------
+export function publicUrl(path){ return supabase.storage.from('photos').getPublicUrl(path).data.publicUrl; }
 
-  const { data, error } = await supabase
-    .from('listings')
-    .insert({ owner_id: uid, title, description, status: 'pending' })
-    .select('id')
-    .single();
-
-  if (error) throw error;
-  return data?.id;
+export async function listPhotos(listing_id){
+  const { data, error } = await supabase.from('photos')
+    .select('*').eq('listing_id', listing_id).order('created_at',{ascending:false});
+  if(error) throw error;
+  return data;
 }
-
-export asy
+export async function uploadPhoto(listing_id, file){
+  const u = await currentUser(); if(!u) throw new Error('Not authenticated');
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const path = `${listing_id}/${crypto.randomUUID?.():Date.now()}.${ext}`;
+  const { error: upErr } = await supabase.storage.from('photos').upload(path, file, { upsert:false, cacheControl:'3600' });
+  if(upErr) throw upErr;
+  const { error } = await supabase.from('photos').insert([{ listing_id, path }]);
+  if(error){ // rollback storage
+    await supabase.storage.from('photos').remove([path]);
+    throw error;
+  }
+}
+export async function deletePhoto(photo_id, path){
+  const { error } = await supabase.from('photos').delete().eq('id', photo_id);
+  if(error) throw error;
+  await supabase.storage.from('photos').remove([path]).catch(()=>{});
+}
