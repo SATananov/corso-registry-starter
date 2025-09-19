@@ -14,25 +14,27 @@
   </div>
   <nav class="nav">
     <a href="index.html">Начало</a>
-    <a href="login.html">Вход</a>
-    <a class="btn" href="register.html">Регистрация</a>
+    <a data-if-anon href="login.html">Вход</a>
+    <a data-if-anon class="btn" href="register.html">Регистрация</a>
+    <a data-if-authed href="profile.html">Профил</a>
+    <a data-if-authed href="#" data-logout>Изход</a>
   </nav>
 </header>
 
 <main class="container">
   <section class="card">
     <h1>Добре дошли</h1>
-    <p>Това е празен стартов проект. След секунди ще тестваме връзката със Supabase.</p>
+    <p>Това е стартов проект. По-долу тестваме връзката със Supabase.</p>
     <div class="muted">DB статус: <span id="ping">проверявам…</span></div>
   </section>
 
   <section class="card">
-    <h2>Какво следва</h2>
+    <h2>Какво предстои</h2>
     <ol>
       <li>Auth (регистрация, вход, профил)</li>
       <li>Роли (admin) + админ панел</li>
-      <li>Списъци (listings) с одобрение</li>
-      <li>Снимки (публичен преглед, качване от потребители)</li>
+      <li>Потребителско съдържание (submit → approve)</li>
+      <li>Снимки (Storage) + каталози</li>
     </ol>
   </section>
 </main>
@@ -41,13 +43,11 @@
 
 <script type="module">
   import { supabase } from './js/api.js';
+  import { bootstrap } from './js/app.js';
+  bootstrap();
   const el = document.getElementById('ping');
   try {
-    // публично четене на profiles (ще го позволим със SQL по-долу)
-    const { error } = await supabase
-      .from('profiles')
-      .select('id', { head: true, count: 'exact' })
-      .limit(1);
+    const { error } = await supabase.from('profiles').select('id', { head:true, count:'exact' }).limit(1);
     el.textContent = error ? ('грешка: ' + error.message) : 'OK';
   } catch (e) {
     el.textContent = 'грешка: ' + (e?.message || e);
