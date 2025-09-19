@@ -1,32 +1,34 @@
-import { initClient, getSession, logout } from './api.js';
-import { initNavbar } from './ui.js';
+// js/app.js — малък bootstrap: визуално състояние на навигацията + guard
+import { supabase, logout } from './api.js';
 
-export function bootstrap(){
-  initClient();
-  initNavbar();
+export async function refreshTopbar() {
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user ?? null;
 
-  // тема
-  const btn = document.getElementById('themeBtn');
-  if(btn){
-    btn.onclick = ()=>{
-      const cur=document.documentElement.getAttribute('data-theme')||'dark';
-      document.documentElement.setAttribute('data-theme', cur==='dark'?'light':'dark');
+  // Навигация: ако има елементи с тези data-атрибути, ги показваме/скриваме
+  const showIfAnon = document.querySelectorAll('[data-if-anon]');
+  const showIfAuthed = document.querySelectorAll('[data-if-authed]');
+  showIfAnon.forEach(el => el.style.display = user ? 'none' : '');
+  showIfAuthed.forEach(el => el.style.display = user ? '' : 'none');
+
+  // Пример за бутон изход
+  document.querySelectorAll('[data-logout]').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.preventDefault();
+      await logout();
+      location.href = 'index.html';
     };
+  });
+}
+
+export function bootstrap() {
+  refreshTopbar();
+}
+
+export async function requireAuth(redirectUrl = 'login.html') {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session?.user) {
+    location.href = redirectUrl;
+    throw new Error('Not authenticated');
   }
-  document.getElementById('burgerBtn')?.addEventListener('click', ()=> document.body.classList.toggle('menu-open'));
-}
-
-export async function requireAuth(redirectTo='login.html'){
-  const { user } = await getSession();
-  if(!user) location.href = redirectTo;
-}
-
-export async function requireAdmin(redirectTo='login.html'){
-  const { user, role } = await getSession();
-  if(!user || role!=='admin') location.href = redirectTo;
-}
-
-// удобно за бутон "Изход", ако не сме в navbar
-export async function doLogout(){
-  await logout(); location.href='login.html';
 }
