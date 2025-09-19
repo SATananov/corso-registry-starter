@@ -8,14 +8,13 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
 
-// session helpers
+// ========== Session/Auth helpers ==========
 export async function getSession() {
   const { data } = await supabase.auth.getSession();
   return { session: data.session, user: data.session?.user ?? null };
 }
 export async function logout() { await supabase.auth.signOut(); }
 
-// auth flows
 export async function register({ display_name, username, email, password }) {
   const { data, error } = await supabase.auth.signUp({
     email, password,
@@ -47,7 +46,7 @@ export async function loginWithUsername(username, password) {
   return data.user;
 }
 
-// profile helpers
+// ========== Profile helpers ==========
 export async function getMyProfile() {
   const { data: u } = await supabase.auth.getUser();
   const uid = u.user?.id;
@@ -59,7 +58,20 @@ export async function getMyProfile() {
   return prof || null;
 }
 
-// listings (админ: approve/reject)
+export async function fetchProfilesMap(ids = []) {
+  const uniq = Array.from(new Set(ids.filter(Boolean)));
+  if (!uniq.length) return {};
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, username, display_name')
+    .in('id', uniq);
+  if (error) throw error;
+  const map = {};
+  (data || []).forEach(p => { map[p.id] = p.display_name || p.username || p.id; });
+  return map;
+}
+
+// ========== Listings: admin ==========
 export async function fetchPendingListings() {
   const { data, error } = await supabase
     .from('listings')
@@ -69,7 +81,6 @@ export async function fetchPendingListings() {
   if (error) throw error;
   return data || [];
 }
-
 export async function fetchAllListings(limit = 50) {
   const { data, error } = await supabase
     .from('listings')
@@ -79,11 +90,42 @@ export async function fetchAllListings(limit = 50) {
   if (error) throw error;
   return data || [];
 }
-
 export async function setListingStatus(id, status) {
-  const { error } = await supabase
-    .from('listings')
-    .update({ status })
-    .eq('id', id);
+  const { error } = await supabase.from('listings').update({ status }).eq('id', id);
   if (error) throw error;
+}
+
+// ========== Listings: public + create ==========
+export async function createListing({ title, description }) {
+  const { data: u } = await supabase.auth.getUser();
+  const uid = u.user?.id;
+  if (!uid) throw new Error('Не си логнат.');
+
+  const { data, error } = await supabase
+    .from('listings')
+    .insert({ owner_id: uid, title, description, status: 'pending' })
+    .select('id')
+    .single();
+
+  if (error) throw error;
+  return data?.id;
+}
+
+export async function fetchApprovedListings({ q = '', limit = 20, offset = 0 } = {}) {
+  let query = supabase
+    .from('listings')
+    .select('id, owner_id, title, description, created_at', { count: 'exact' })
+    .eq('status', 'approved')
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (q && q.trim()) {
+    const like = `%${q.trim()}%`;
+    // търси в title или description
+    query = query.or(`title.ilike.${like},description.ilike.${like}`);
+  }
+
+  const { data, count, error } = await query;
+  if (error) throw error;
+  return { rows: data || [], count: count ?? 0 };
 }
