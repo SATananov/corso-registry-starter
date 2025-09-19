@@ -18,7 +18,6 @@ async function renderPending(){
   const rows = await fetchPendingListings();
   if (!rows.length){ elPending.innerHTML = '<div class="muted">Няма чакащи към момента.</div>'; return; }
 
-  // обогати с owner
   for (const r of rows){ r.owner_label = await ownerName(r.owner_id); }
 
   elPending.innerHTML = `
@@ -35,6 +34,7 @@ async function renderPending(){
             <td>
               <button class="pill approve" data-approve>Одобри</button>
               <button class="pill reject" data-reject>Отхвърли</button>
+              <button class="pill delete" data-delete>Изтрий</button>
             </td>
           </tr>
         `).join('')}
@@ -53,6 +53,14 @@ async function renderPending(){
     btn.onclick = async (e)=>{
       const id = e.target.closest('tr')?.dataset.id;
       await setListingStatus(id,'rejected');
+      await refresh();
+    };
+  });
+  elPending.querySelectorAll('[data-delete]').forEach(btn=>{
+    btn.onclick = async (e)=>{
+      const id = e.target.closest('tr')?.dataset.id;
+      if(!confirm('Да изтрия този запис? Това ще изтрие и снимките.')) return;
+      await supabase.from('listings').delete().eq('id', id);
       await refresh();
     };
   });
