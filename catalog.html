@@ -1,71 +1,46 @@
 <!DOCTYPE html>
-<html lang="bg" data-theme="dark">
+<html lang="bg">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Каталог — Cane Corso BG</title>
-  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Каталог</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+    .toolbar input{flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#0e1420;color:var(--text)}
+    .items{display:grid;gap:12px}
+    .item .muted{display:block;margin-top:6px}
+  </style>
 </head>
 <body>
-  <header class="app-header">
-    <div class="container brandbar">
-      <a class="logo-wrap" href="index.html"><img src="assets/logo.svg" class="brand-logo" alt=""><div><h1>Регистър CANE CORSO — България</h1><p class="motto-top">“UNA QUAEDAM” — A UNIQUE ONE</p></div></a>
-      <div class="nav-right" id="navbar"><a class="btn link" href="login.html">Вход</a><a class="btn primary" href="register.html">Регистрация</a></div>
+<header class="topbar">
+  <div class="brand"><a href="index.html"><strong>Listings Starter</strong></a> <span class="tag">Catalog</span></div>
+  <nav class="nav">
+    <a href="index.html">Начало</a>
+    <a href="catalog.html">Каталог</a>
+    <a data-if-admin href="admin.html">Админ</a>
+
+    <a data-if-authed href="new.html" class="btn">Нов запис</a>
+    <a data-if-authed href="#" data-logout>Изход</a>
+    <a data-if-anon href="login.html" class="btn">Вход</a>
+  </nav>
+</header>
+
+<main class="container">
+  <section class="card">
+    <h1>Каталог</h1>
+    <div class="toolbar">
+      <input id="q" placeholder="Търси по заглавие/описание…" />
+      <button id="btn" class="btn primary">Търси</button>
     </div>
-    <nav class="nav">
-      <div class="container nav-row">
-        <div class="nav-left">
-          <ul>
-            <li><a class="nav-link" href="index.html">Начало</a></li>
-            <li><a class="nav-link active" href="catalog.html">Каталог</a></li>
-            <li><a class="nav-link" href="index.html#about">За нас</a></li>
-            <li><a class="nav-link" href="index.html#breed">Породата</a></li>
-            <li><a class="nav-link" href="index.html#contact">Контакт</a></li>
-          </ul>
-        </div>
-        <div class="nav-tools"><button class="btn link" id="themeBtn">🌓</button><button class="btn link" id="burgerBtn">☰</button></div>
-      </div>
-    </nav>
-  </header>
+    <div id="count" class="muted">—</div>
+  </section>
 
-  <main class="container">
-    <section>
-      <h2>Каталог</h2>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <input id="q" class="input" placeholder="Търси по име…">
-        <button id="search" class="btn">Търси</button>
-      </div>
-      <div id="grid" class="grid"></div>
-    </section>
-  </main>
+  <section class="card">
+    <div id="list" class="items">Зареждам…</div>
+  </section>
+</main>
 
-  <footer class="footer"><small>© 2025 Cane Corso Registry BG · MIT</small></footer>
-
-  <script type="module">
-    import { bootstrap } from './js/app.js';
-    import { listApprovedDogs } from './js/api.js';
-    bootstrap();
-
-    const grid = document.getElementById('grid');
-    const q = document.getElementById('q');
-    document.getElementById('search').onclick = ()=> load();
-
-    async function load(){
-      grid.innerHTML = `<div class="skeleton" style="height:120px;border-radius:12px"></div>`;
-      const items = await listApprovedDogs(q.value.trim());
-      grid.innerHTML = items.length ? items.map(d => `
-        <article class="dog-card">
-          <img src="${d.cover_url || 'assets/placeholder.png'}" alt="${d.name||''}">
-          <div class="body">
-            <h3 style="margin:0">${d.name||'Без име'}</h3>
-            <div class="muted" style="margin:.2rem 0">${d.sex==='female'?'♀ женско':'♂ мъжко'} · ${d.color||'—'} · ${d.city||'—'}</div>
-            <a class="btn" href="details.html?id=${d.id}">Детайли</a>
-          </div>
-        </article>
-      `).join('') : `<div class="empty">Няма одобрени записи.</div>`;
-    }
-    load();
-  </script>
+<script type="module" src="js/app.js"></script>
+<script type="module" src="js/catalog.js"></script>
 </body>
 </html>
