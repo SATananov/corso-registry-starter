@@ -8,7 +8,7 @@ const id = params.get('id');
 const head = document.getElementById('head');
 const grid = document.getElementById('grid');
 
-function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&gt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
 (async ()=>{
   if(!id){ head.textContent = 'Липсва id.'; return; }
@@ -32,3 +32,4 @@ function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','
     head.innerHTML = `<div class="muted">Грешка: ${esc(e?.message || e)}</div>`;
   }
 })();
+
