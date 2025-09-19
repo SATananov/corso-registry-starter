@@ -1,44 +1,31 @@
-<!DOCTYPE html>
-<html lang="bg">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Вход</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
+<!DOCTYPE html><html lang="bg"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Вход</title>
+<link rel="stylesheet" href="styles.css">
+</head><body>
 <header class="topbar">
-  <div class="brand"><a href="index.html"><strong>Listings Starter</strong></a></div>
+  <div class="brand"><a href="index.html"><strong>Listings Starter</strong></a> <span class="tag">Вход</span></div>
   <nav class="nav">
     <a href="index.html">Начало</a>
+    <a href="catalog.html">Каталог</a>
     <a data-if-admin href="admin.html">Админ</a>
-
-    <a data-if-anon class="btn" href="register.html">Регистрация</a>
-
-    <a data-if-authed href="profile.html">Профил</a>
-    <a data-if-authed href="#" data-logout>Изход</a>
+    <a data-if-anon href="register.html" class="btn">Регистрация</a>
   </nav>
 </header>
 
 <main class="container">
   <section class="card" style="max-width:520px;margin-inline:auto">
-    <h1>Вход</h1>
-    <form id="form" data-mode="login" class="form">
-      <label class="field">
-        <span>Потребителско име</span>
-        <input name="username" placeholder="напр. StefanT" required />
-      </label>
-      <label class="field">
-        <span>Парола</span>
-        <input type="password" name="password" required />
-      </label>
-      <button class="btn primary" type="submit">Влез</button>
+    <h1>Вход с email</h1>
+    <form id="form" class="form">
+      <label class="field"><span>Email</span><input name="email" type="email" required></label>
+      <label class="field"><span>Парола</span><input name="password" type="password" required></label>
+      <button class="btn primary">Вход</button>
       <div id="msg" class="muted" style="margin-top:8px"></div>
+      <div class="muted" style="margin-top:8px">Нямаш акаунт? <a href="register.html">Регистрирай се.</a></div>
     </form>
   </section>
 </main>
 
 <script type="module" src="js/app.js"></script>
-<script type="module" src="js/auth.js"></script>
-</body>
-</html>
-
+<script type="module" src="js/login.js"></script>
+</body></html>
