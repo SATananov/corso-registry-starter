@@ -1,4 +1,4 @@
-// js/auth.js — логика за login/register страници
+// js/auth.js — логика за login/register страници (по-говорливи грешки)
 import { bootstrap } from './app.js';
 import { register, loginWithUsername, getSession } from './api.js';
 
@@ -18,6 +18,17 @@ const mode = form?.dataset.mode; // "login" или "register"
   if (mode === 'register') initRegister();
 })();
 
+function friendly(e) {
+  const t = (e?.message || '').toLowerCase();
+  if (t.includes('already registered')) return 'Този email вече е регистриран.';
+  if (t.includes('signups not allowed')) return 'Регистрациите са изключени в Supabase (Auth → Settings).';
+  if (t.includes('password')) return 'Невалидна парола (мин. 6 символа).';
+  if (t.includes('network') || t.includes('cors')) return 'Мрежова/CORS грешка – провери Site URL в Supabase и ключовете.';
+  if (t.includes('row-level security')) return 'RLS политики за profiles липсват (пусни SQL-а).';
+  if (t.includes('duplicate') || t.includes('unique')) return 'Потребителско име или email вече е заето.';
+  return e?.message || 'Грешка при регистрация.';
+}
+
 function initLogin() {
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -33,10 +44,8 @@ function initLogin() {
       await loginWithUsername(username, password);
       location.href = 'profile.html';
     } catch (err) {
-      const t = err?.message || '';
-      msg.textContent = /invalid|email|password/i.test(t)
-        ? 'Грешно потребителско име или парола.'
-        : (t || 'Неуспешен вход.');
+      msg.textContent = friendly(err);
+      console.error(err);
     }
   });
 }
@@ -64,14 +73,14 @@ function initRegister() {
     msg.textContent = 'Създавам акаунт…';
     try {
       const user = await register(payload);
-      // ако email confirmations са OFF, user ще е наличен веднага
-      msg.textContent = user ? 'Готово! Влез с потребителско име и парола.' : 'Провери email за потвърждение.';
-      setTimeout(() => location.href = 'login.html', 900);
+      msg.textContent = user
+        ? 'Готово! Влез с потребителско име и парола.'
+        : 'Провери email за потвърждение.';
+      setTimeout(() => (location.href = 'login.html'), 900);
     } catch (err) {
-      const txt = err?.message || '';
-      if (/duplicate|unique/i.test(txt)) msg.textContent = 'Това потребителско име или email вече е заето.';
-      else if (/row-level security/i.test(txt)) msg.textContent = 'Нужни са RLS политики за profiles (виж SQL).';
-      else msg.textContent = 'Грешка при регистрация.';
+      msg.textContent = friendly(err);
+      console.error(err);
     }
   });
 }
+
