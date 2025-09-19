@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="bg" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Каталог — Cane Corso BG</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="container brandbar">
+      <a class="logo-wrap" href="index.html"><img src="assets/logo.svg" class="brand-logo" alt=""><div><h1>Регистър CANE CORSO — България</h1><p class="motto-top">“UNA QUAEDAM” — A UNIQUE ONE</p></div></a>
+      <div class="nav-right" id="navbar"><a class="btn link" href="login.html">Вход</a><a class="btn primary" href="register.html">Регистрация</a></div>
+    </div>
+    <nav class="nav">
+      <div class="container nav-row">
+        <div class="nav-left">
+          <ul>
+            <li><a class="nav-link" href="index.html">Начало</a></li>
+            <li><a class="nav-link active" href="catalog.html">Каталог</a></li>
+            <li><a class="nav-link" href="index.html#about">За нас</a></li>
+            <li><a class="nav-link" href="index.html#breed">Породата</a></li>
+            <li><a class="nav-link" href="index.html#contact">Контакт</a></li>
+          </ul>
+        </div>
+        <div class="nav-tools"><button class="btn link" id="themeBtn">🌓</button><button class="btn link" id="burgerBtn">☰</button></div>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section>
+      <h2>Каталог</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <input id="q" class="input" placeholder="Търси по име…">
+        <button id="search" class="btn">Търси</button>
+      </div>
+      <div id="grid" class="grid"></div>
+    </section>
+  </main>
+
+  <footer class="footer"><small>© 2025 Cane Corso Registry BG · MIT</small></footer>
+
+  <script type="module">
+    import { bootstrap } from './js/app.js';
+    import { listApprovedDogs } from './js/api.js';
+    bootstrap();
+
+    const grid = document.getElementById('grid');
+    const q = document.getElementById('q');
+    document.getElementById('search').onclick = ()=> load();
+
+    async function load(){
+      grid.innerHTML = `<div class="skeleton" style="height:120px;border-radius:12px"></div>`;
+      const items = await listApprovedDogs(q.value.trim());
+      grid.innerHTML = items.length ? items.map(d => `
+        <article class="dog-card">
+          <img src="${d.cover_url || 'assets/placeholder.png'}" alt="${d.name||''}">
+          <div class="body">
+            <h3 style="margin:0">${d.name||'Без име'}</h3>
+            <div class="muted" style="margin:.2rem 0">${d.sex==='female'?'♀ женско':'♂ мъжко'} · ${d.color||'—'} · ${d.city||'—'}</div>
+            <a class="btn" href="details.html?id=${d.id}">Детайли</a>
+          </div>
+        </article>
+      `).join('') : `<div class="empty">Няма одобрени записи.</div>`;
+    }
+    load();
+  </script>
+</body>
+</html>
