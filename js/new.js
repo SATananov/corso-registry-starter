@@ -25,7 +25,7 @@ form.addEventListener('submit', async (e)=>{
   try{
     msg.textContent = 'Изпращам…';
     await createListing({ title, description });
-    msg.textContent = 'Изпратено за одобрение! Ще се появи в каталога, след като админ го одобри.';
+    msg.textContent = 'Изпратено за одобрение! Ще се появи в каталога след одобрение от админ.';
     form.reset();
   }catch(err){
     msg.textContent = friendly(err);
