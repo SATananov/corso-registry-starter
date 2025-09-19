@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Снимки</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .uploader{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+    .ph{background:#0e1420;border:1px solid var(--border);border-radius:12px;padding:8px}
+    .ph img{width:100%;height:120px;object-fit:cover;border-radius:8px}
+    .ph .row{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+    .pill.delete{padding:6px 10px;border-radius:10px;border:1px solid var(--border);background:#6c1a1a;border-color:#a22b2b;color:#ffecec;cursor:pointer}
+  </style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><a href="index.html"><strong>Listings Starter</strong></a> <span class="tag">Снимки</span></div>
+  <nav class="nav">
+    <a href="index.html">Начало</a>
+    <a href="catalog.html">Каталог</a>
+    <a data-if-admin href="admin.html">Админ</a>
+
+    <a data-if-authed href="my.html">Моите</a>
+    <a data-if-authed href="#" data-logout>Изход</a>
+    <a data-if-anon href="login.html" class="btn">Вход</a>
+  </nav>
+</header>
+
+<main class="container">
+  <section class="card">
+    <h1>Снимки към запис</h1>
+    <div class="uploader">
+      <input id="files" type="file" accept="image/*" multiple />
+      <button id="upload" class="btn primary">Качи</button>
+      <div id="msg" class="muted"></div>
+    </div>
+    <div id="grid" class="grid">Зареждам…</div>
+  </section>
+</main>
+
+<script type="module" src="js/app.js"></script>
+<script type="module" src="js/photos.js"></script>
+</body>
+</html>
