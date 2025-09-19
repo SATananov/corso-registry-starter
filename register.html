@@ -1,53 +1,23 @@
 <!DOCTYPE html>
-<html lang="bg" data-theme="dark">
+<html lang="bg">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Регистрация — Cane Corso BG</title>
-  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Регистрация</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="app-header">
-    <div class="container brandbar">
-      <a class="logo-wrap" href="index.html"><img src="assets/logo.svg" class="brand-logo" alt=""><div><h1>Регистър CANE CORSO — България</h1><p class="motto-top">“UNA QUAEDAM” — A UNIQUE ONE</p></div></a>
-      <div class="nav-right" id="navbar"><a class="btn link" href="login.html">Вход</a><a class="btn primary" href="register.html">Регистрация</a></div>
-    </div>
-  </header>
-
-  <main class="container">
-    <section class="card">
-      <h2>Създай акаунт</h2>
-      <form id="form" class="form-stack">
-        <input name="display_name" class="input" placeholder="Име за показване" required>
-        <input name="username" class="input" placeholder="Потребителско име (уникално)" required>
-        <input name="email" class="input" type="email" placeholder="Email (само за акаунта)" required>
-        <input name="password" class="input" type="password" placeholder="Парола (мин. 6 символа)" required>
-        <button class="btn primary">Създай акаунт</button>
-      </form>
-      <div id="msg" class="muted"></div>
-      <p class="muted" style="margin-top:10px">Вече имаш акаунт? <a href="login.html">Влез тук</a>.</p>
-    </section>
-  </main>
-
-  <footer class="footer"><small>© 2025 Cane Corso Registry BG · MIT</small></footer>
-
-  <script type="module">
-    import { bootstrap } from './js/app.js';
-    import { register } from './js/api.js';
-    bootstrap();
-    const f=document.getElementById('form'), msg=document.getElementById('msg');
-    f.addEventListener('submit', async (e)=>{
-      e.preventDefault(); const fd=new FormData(f);
-      msg.textContent='Създавам акаунт…';
-      try{
-        await register({ email:fd.get('email'), password:fd.get('password'), username:fd.get('username'), display_name:fd.get('display_name') });
-        msg.textContent='Готово! Влезте с потребителско име и парола.'; setTimeout(()=>location.href='login.html', 900);
-      }catch(err){
-        const txt=err?.message||'Грешка при регистрация.'; 
-        msg.textContent=/duplicate|unique/i.test(txt)?'Това потребителско име вече съществува.':txt;
-      }
-    });
-  </script>
+<header class="topbar">
+  <div class="brand"><a href="index.html"><strong>Listings Starter</strong></a></div>
+  <nav class="nav">
+    <a href="index.html">Начало</a>
+    <a href="login.html">Вход</a>
+  </nav>
+</header>
+<main class="container">
+  <section class="card">
+    <h1>Регистрация</h1>
+    <p class="muted">Формата ще добавим в Стъпка 2 (auth).</p>
+  </section>
+</main>
 </body>
 </html>
