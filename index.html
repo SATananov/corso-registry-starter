@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="bg" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Регистър Cane Corso — България</title>
+  <meta name="description" content="Публичен регистър за Cane Corso в България — профили, снимки, модериране и каталог." />
+  <link rel="icon" type="image/svg+xml" href="assets/Logo Stefano De Tanini.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- HEADER -->
+  <header class="app-header">
+    <div class="container brandbar">
+      <a class="logo-wrap" href="index.html" aria-label="Начало">
+        <img src="assets/Logo Stefano De Tanini.jpg" alt="" class="brand-logo" />
+        <div>
+          <h1>Регистър CANE CORSO — България</h1>
+          <p class="motto-top">“UNA QUAEDAM” — A UNIQUE ONE</p>
+        </div>
+      </a>
+      <div class="nav-right" id="navbar">
+        <!-- Fallback: показва се, ако JS не зареди -->
+        <a class="btn link" href="login.html">Вход</a>
+        <a class="btn primary" href="register.html">Регистрация</a>
+        <button class="btn link" id="fallbackBurger" aria-label="Меню">☰</button>
+        <script>
+          document.getElementById('fallbackBurger')?.addEventListener('click', ()=>document.body.classList.toggle('menu-open'));
+        </script>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="container nav-row">
+        <div class="nav-left">
+          <ul>
+            <li><a class="nav-link active" href="index.html">Начало</a></li>
+            <li><a class="nav-link" href="catalog.html">Каталог</a></li>
+            <li><a class="nav-link" href="index.html#about">За нас</a></li>
+            <li><a class="nav-link" href="index.html#breed">Породата</a></li>
+            <li><a class="nav-link" href="index.html#contact">Контакт</a></li>
+          </ul>
+        </div>
+        <div class="nav-tools">
+          <button class="btn link" id="themeBtn" title="Смяна на тема">🌓</button>
+          <button class="btn link" id="burgerBtn" aria-label="Меню">☰</button>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- HERO -->
+    <section class="hero">
+      <div>
+        <h2>Stefano De Tanini Cane Corso Registry</h2>
+        <p>Официалният регистър за Cane Corso в България. Поддържаме стандартите на породата, насърчаваме отговорно развъждане и свързваме всички почитатели на Cane Corso.</p>
+        <p class="motto">„UNA QUAEDAM“ — A Unique One</p>
+        <a href="catalog.html" class="cta-button">Виж каталога</a>
+      </div>
+      <div>
+        <img src="assets/placeholder.jpg" alt="Cane Corso" />
+      </div>
+    </section>
+
+    <!-- ABOUT -->
+    <section id="about">
+      <h2>За регистъра</h2>
+      <p>Регистърът документира и пази качествените линии на Cane Corso. Помага за проследяване на произхода, подпомага отговорното развъждане и свързва собственици в общност.</p>
+    </section>
+
+    <!-- BREED -->
+    <section id="breed">
+      <h2>Породата Cane Corso</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Характеристики</h3>
+          <ul>
+            <li>Височина: мъжки 62–70 см, женски 58–66 см</li>
+            <li>Тегло: мъжки 45–50 кг, женски 40–45 кг</li>
+            <li>Цвят: черно, сиво, фаун, форментино, червено, тигрово</li>
+            <li>Темперамент: уверен, интелигентен, лоялен</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Стандарти</h3>
+          <p>Следваме ясни стандарти за глава, корпус, козина, движения и темперамент.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT -->
+    <section id="contact">
+      <h2>Контакт</h2>
+      <form id="contactForm" class="form-stack">
+        <input class="input" placeholder="Вашето име" required>
+        <input class="input" type="email" placeholder="Email" required>
+        <textarea class="input" rows="4" placeholder="Вашето съобщение" required></textarea>
+        <button class="btn primary">Изпрати</button>
+      </form>
+    </section>
+  </main>
+
+  <footer class="footer"><small>© 2025 Cane Corso Registry BG · MIT</small></footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
