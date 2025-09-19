@@ -10,7 +10,10 @@
   <div class="brand"><a href="index.html"><strong>Listings Starter</strong></a></div>
   <nav class="nav">
     <a href="index.html">Начало</a>
+    <a data-if-admin href="admin.html">Админ</a>
+
     <a data-if-anon href="login.html">Вход</a>
+
     <a data-if-authed href="profile.html">Профил</a>
     <a data-if-authed href="#" data-logout>Изход</a>
   </nav>
