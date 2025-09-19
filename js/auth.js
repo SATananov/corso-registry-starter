@@ -1,4 +1,3 @@
-// js/auth.js — логика за login/register страници (по-говорливи грешки)
 import { bootstrap } from './app.js';
 import { register, loginWithUsername, getSession } from './api.js';
 
@@ -6,7 +5,7 @@ bootstrap();
 
 const form = document.getElementById('form');
 const msg = document.getElementById('msg');
-const mode = form?.dataset.mode; // "login" или "register"
+const mode = form?.dataset.mode;
 
 (async () => {
   const { user } = await getSession();
@@ -21,12 +20,12 @@ const mode = form?.dataset.mode; // "login" или "register"
 function friendly(e) {
   const t = (e?.message || '').toLowerCase();
   if (t.includes('already registered')) return 'Този email вече е регистриран.';
-  if (t.includes('signups not allowed')) return 'Регистрациите са изключени в Supabase (Auth → Settings).';
+  if (t.includes('signups not allowed')) return 'Регистрациите са изключени в Supabase.';
   if (t.includes('password')) return 'Невалидна парола (мин. 6 символа).';
-  if (t.includes('network') || t.includes('cors')) return 'Мрежова/CORS грешка – провери Site URL в Supabase и ключовете.';
+  if (t.includes('network') || t.includes('cors')) return 'CORS/мрежова грешка – провери Site URL и ключовете.';
   if (t.includes('row-level security')) return 'RLS политики за profiles липсват (пусни SQL-а).';
   if (t.includes('duplicate') || t.includes('unique')) return 'Потребителско име или email вече е заето.';
-  return e?.message || 'Грешка при регистрация.';
+  return e?.message || 'Грешка.';
 }
 
 function initLogin() {
@@ -35,18 +34,10 @@ function initLogin() {
     const fd = new FormData(form);
     const username = String(fd.get('username') || '').trim();
     const password = String(fd.get('password') || '');
-    if (!username || !password) {
-      msg.textContent = 'Моля, попълнете потребителско име и парола.';
-      return;
-    }
+    if (!username || !password) { msg.textContent = 'Моля, попълнете и двете полета.'; return; }
     msg.textContent = 'Влизам…';
-    try {
-      await loginWithUsername(username, password);
-      location.href = 'profile.html';
-    } catch (err) {
-      msg.textContent = friendly(err);
-      console.error(err);
-    }
+    try { await loginWithUsername(username, password); location.href = 'profile.html'; }
+    catch (err) { msg.textContent = friendly(err); console.error(err); }
   });
 }
 
@@ -60,27 +51,16 @@ function initRegister() {
       email: String(fd.get('email') || '').trim(),
       password: String(fd.get('password') || '')
     };
-
     if (!payload.display_name || !payload.username || !payload.email || !payload.password) {
-      msg.textContent = 'Моля, попълнете всички полета.';
-      return;
+      msg.textContent = 'Моля, попълнете всички полета.'; return;
     }
-    if (payload.password.length < 6) {
-      msg.textContent = 'Паролата трябва да е поне 6 символа.';
-      return;
-    }
+    if (payload.password.length < 6) { msg.textContent = 'Парола: мин. 6 символа.'; return; }
 
     msg.textContent = 'Създавам акаунт…';
     try {
       const user = await register(payload);
-      msg.textContent = user
-        ? 'Готово! Влез с потребителско име и парола.'
-        : 'Провери email за потвърждение.';
+      msg.textContent = user ? 'Готово! Влез с потребителско име и парола.' : 'Провери email за потвърждение.';
       setTimeout(() => (location.href = 'login.html'), 900);
-    } catch (err) {
-      msg.textContent = friendly(err);
-      console.error(err);
-    }
+    } catch (err) { msg.textContent = friendly(err); console.error(err); }
   });
 }
-
