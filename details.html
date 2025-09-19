@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="bg" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Детайли — Cane Corso BG</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="container brandbar">
+      <a class="logo-wrap" href="index.html"><img src="assets/logo.svg" class="brand-logo" alt=""><div><h1>Регистър CANE CORSO — България</h1><p class="motto-top">“UNA QUAEDAM” — A UNIQUE ONE</p></div></a>
+      <div class="nav-right" id="navbar"><a class="btn link" href="login.html">Вход</a><a class="btn primary" href="register.html">Регистрация</a></div>
+    </div>
+    <nav class="nav">
+      <div class="container nav-row">
+        <div class="nav-left">
+          <ul>
+            <li><a class="nav-link" href="index.html">Начало</a></li>
+            <li><a class="nav-link" href="catalog.html">Каталог</a></li>
+          </ul>
+        </div>
+        <div class="nav-tools"><button class="btn link" id="themeBtn">🌓</button><button class="btn link" id="burgerBtn">☰</button></div>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section id="wrap"><div class="skeleton" style="height:220px;border-radius:12px"></div></section>
+  </main>
+
+  <footer class="footer"><small>© 2025 Cane Corso Registry BG · MIT</small></footer>
+
+  <script type="module">
+    import { bootstrap } from './js/app.js';
+    import { getDogById } from './js/api.js';
+    import { openLightbox } from './js/lightbox.js';
+    bootstrap();
+
+    const id = new URL(location.href).searchParams.get('id');
+    const wrap = document.getElementById('wrap');
+
+    (async ()=>{
+      const dog = await getDogById(id);
+      if(!dog){ wrap.innerHTML = `<div class="empty">Не е намерено.</div>`; return; }
+      const urls = (dog.photos||[]).map(p=>p.url).filter(Boolean);
+      wrap.innerHTML = `
+        <div class="fade-in" style="display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start">
+          <img src="${dog.cover_url || 'assets/placeholder.png'}" alt="${dog.name||''}" style="width:100%;border-radius:10px;border:1px solid #333;background:#111">
+          <div>
+            <h2>${dog.name||'Без име'}</h2>
+            <div class="muted" style="margin:.2rem 0">Пол: ${dog.sex==='female'?'♀ женско':'♂ мъжко'} · Цвят: ${dog.color||'—'} · Град: ${dog.city||'—'}</div>
+            <div class="card">
+              <strong>Снимки</strong>
+              <div id="ph" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:10px">
+                ${ urls.map((u,i)=>`<img data-i="${i}" src="${u}" alt="" style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:8px;border:1px solid #333;background:#111;cursor:zoom-in">`).join('') || '<span class="muted">няма</span>'}
+              </div>
+            </div>
+          </div>
+        </div>`;
+      document.getElementById('ph').addEventListener('click', (e)=>{
+        const el = e.target.closest('img[data-i]'); if(!el) return;
+        openLightbox(urls, Number(el.dataset.i||0));
+      });
+    })();
+  </script>
+  <script type="module" src="js/lightbox.js"></script>
+</body>
+</html>
