@@ -10,14 +10,31 @@
   <div class="brand"><a href="index.html"><strong>Listings Starter</strong></a></div>
   <nav class="nav">
     <a href="index.html">Начало</a>
-    <a class="btn" href="register.html">Регистрация</a>
+    <a data-if-anon href="register.html" class="btn">Регистрация</a>
+    <a data-if-authed href="profile.html">Профил</a>
+    <a data-if-authed href="#" data-logout>Изход</a>
   </nav>
 </header>
+
 <main class="container">
-  <section class="card">
+  <section class="card" style="max-width:520px;margin-inline:auto">
     <h1>Вход</h1>
-    <p class="muted">Формата ще добавим в Стъпка 2 (auth).</p>
+    <form id="form" data-mode="login" class="form">
+      <label class="field">
+        <span>Потребителско име</span>
+        <input name="username" placeholder="напр. StefanT" required />
+      </label>
+      <label class="field">
+        <span>Парола</span>
+        <input type="password" name="password" required />
+      </label>
+      <button class="btn primary" type="submit">Влез</button>
+      <div id="msg" class="muted" style="margin-top:8px"></div>
+    </form>
   </section>
 </main>
+
+<script type="module" src="js/app.js"></script>
+<script type="module" src="js/auth.js"></script>
 </body>
 </html>
