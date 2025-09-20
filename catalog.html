@@ -2,49 +2,74 @@
 <html lang="bg">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Каталог</title>
+  <title>Каталог Cane Corso</title>
   <link rel="stylesheet" href="styles.css">
   <style>
     .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px}
     .toolbar input{flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#0e1420;color:var(--text)}
     .items{display:grid;gap:12px}
-    .item .muted{display:block;margin-top:6px}
     .item{padding:14px;border:1px solid var(--border);border-radius:12px;background:#131821}
+    .badge{padding:2px 8px;border:1px solid var(--border);border-radius:999px;font-size:12px}
   </style>
 </head>
 <body>
 <header class="topbar">
-  <div class="brand"><a href="index.html"><strong>Listings Starter</strong></a> <span class="tag">Catalog</span></div>
+  <div class="brand"><a href="index.html"><strong>Регистър Cane Corso</strong></a> <span class="tag">Каталог</span></div>
   <nav class="nav">
     <a href="index.html">Начало</a>
     <a href="catalog.html">Каталог</a>
     <a data-if-admin href="admin.html">Админ</a>
-
     <a data-if-authed href="new.html" class="btn">Нов запис</a>
     <a data-if-authed href="my.html">Моите</a>
     <a data-if-authed href="#" data-logout>Изход</a>
-
     <a data-if-anon href="login.html" class="btn">Вход</a>
   </nav>
 </header>
 
 <main class="container">
   <section class="card">
-    <h1>Каталог</h1>
+    <h1>Публичен каталог</h1>
     <div class="toolbar">
-      <input id="q" placeholder="Търси по заглавие/описание…" />
+      <input id="q" placeholder="Търси по име, цвят, микрочип, родословие…" />
       <button id="btn" class="btn primary">Търси</button>
     </div>
     <div id="count" class="muted">—</div>
   </section>
 
-  <section class="card">
-    <div id="list" class="items">Зареждам…</div>
-  </section>
+  <section class="card"><div id="list" class="items">Зареждам…</div></section>
 </main>
 
 <script type="module" src="js/app.js"></script>
-<script type="module" src="js/catalog.js"></script>
-</body>
-</html>
+<script type="module">
+  import { bootstrap } from './js/app.js';
+  import { fetchApprovedDogs, fetchProfilesMap } from './js/api.js';
+  bootstrap();
 
+  const q = document.getElementById('q'), btn = document.getElementById('btn');
+  const list = document.getElementById('list'), countEl = document.getElementById('count');
+
+  const esc = s=>String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  function sexLabel(s){ return s==='male'?'♂ мъжко':'♀ женско'; }
+
+  async function load(query=''){
+    list.textContent='Зареждам…';
+    try{
+      const { rows, count } = await fetchApprovedDogs({ q: query, limit: 60 });
+      countEl.textContent = `Намерени: ${count}`;
+      if(!rows.length){ list.innerHTML='<div class="muted">Няма резултати.</div>'; return; }
+      const map = await fetchProfilesMap(rows.map(r=>r.owner_id));
+      list.innerHTML = rows.map(r=>`
+        <article class="item">
+          <h3><a href="details.html?id=${r.id}">${esc(r.name)}</a> <span class="badge">${sexLabel(r.sex)}</span></h3>
+          <div class="muted">${new Date(r.created_at).toLocaleDateString()} · ${esc(map[r.owner_id]||'—')}</div>
+          <div>Цвят: ${esc(r.color||'—')} · Родено: ${esc(r.date_of_birth||'—')}</div>
+          <div class="muted">Микрочип: ${esc(r.microchip_number||'—')} · Родословие: ${esc(r.pedigree_number||'—')}</div>
+        </article>
+      `).join('');
+    }catch(e){ list.innerHTML = `<div class="muted">Грешка: ${esc(e?.message||e)}</div>`; }
+  }
+  btn.onclick = ()=>load(q.value);
+  q.addEventListener('keydown', e=>{ if(e.key==='Enter') load(q.value); });
+  load('');
+</script>
+</body></html>
