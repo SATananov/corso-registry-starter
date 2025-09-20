@@ -2,25 +2,24 @@
 <html lang="bg">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Снимки</title>
+  <title>Снимки на куче</title>
   <link rel="stylesheet" href="styles.css">
   <style>
     .uploader{display:flex;gap:10px;align-items:center;margin-bottom:12px}
     .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
     .ph{background:#0e1420;border:1px solid var(--border);border-radius:12px;padding:8px}
     .ph img{width:100%;height:120px;object-fit:cover;border-radius:8px}
-    .ph .row{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
-    .pill.delete{padding:6px 10px;border-radius:10px;border:1px solid var(--border);background:#6c1a1a;border-color:#a22b2b;color:#ffecec;cursor:pointer}
+    .row{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+    .pill.delete{padding:6px 10px;border-radius:10px;border:1px solid var(--border);background:#6c1a1a;color:#ffecec;cursor:pointer}
   </style>
 </head>
 <body>
 <header class="topbar">
-  <div class="brand"><a href="index.html"><strong>Listings Starter</strong></a> <span class="tag">Снимки</span></div>
+  <div class="brand"><a href="index.html"><strong>Регистър Cane Corso</strong></a> <span class="tag">Снимки</span></div>
   <nav class="nav">
     <a href="index.html">Начало</a>
     <a href="catalog.html">Каталог</a>
     <a data-if-admin href="admin.html">Админ</a>
-
     <a data-if-authed href="my.html">Моите</a>
     <a data-if-authed href="#" data-logout>Изход</a>
     <a data-if-anon href="login.html" class="btn">Вход</a>
@@ -29,9 +28,9 @@
 
 <main class="container">
   <section class="card">
-    <h1>Снимки към запис</h1>
+    <h1>Снимки</h1>
     <div class="uploader">
-      <input id="files" type="file" accept="image/*" multiple />
+      <input id="files" type="file" accept="image/*" multiple>
       <button id="upload" class="btn primary">Качи</button>
       <div id="msg" class="muted"></div>
     </div>
@@ -40,6 +39,39 @@
 </main>
 
 <script type="module" src="js/app.js"></script>
-<script type="module" src="js/photos.js"></script>
-</body>
-</html>
+<script type="module">
+  import { bootstrap, requireAuth } from './js/app.js';
+  import { listDogPhotos, uploadDogPhoto, deleteDogPhoto, publicUrl } from './js/api.js';
+  bootstrap(); await requireAuth('login.html');
+
+  const id = new URLSearchParams(location.search).get('id');
+  const grid=document.getElementById('grid'), files=document.getElementById('files'), msg=document.getElementById('msg');
+  const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+  async function load(){
+    grid.textContent='Зареждам…';
+    try{
+      const rows=await listDogPhotos(id);
+      if(!rows.length){ grid.innerHTML='<div class="muted">Няма снимки.</div>'; return; }
+      grid.innerHTML=rows.map(r=>`
+        <div class="ph" data-id="${r.id}" data-path="${esc(r.path)}">
+          <img src="${esc(publicUrl(r.path))}" alt="">
+          <div class="row"><span class="muted" style="font-size:12px">${new Date(r.created_at).toLocaleString()}</span>
+            <button class="pill delete">Изтрий</button></div>
+        </div>`).join('');
+      grid.querySelectorAll('.pill.delete').forEach(btn=>btn.onclick=async e=>{
+        const box=e.target.closest('.ph'); const pid=Number(box.dataset.id); const p=box.dataset.path;
+        if(!confirm('Да изтрия снимката?')) return;
+        try{ await deleteDogPhoto(pid,p); box.remove(); }catch(err){ alert(err?.message||'Грешка'); }
+      });
+    }catch(e){ grid.innerHTML=`<div class="muted">Грешка: ${esc(e?.message||e)}</div>`; }
+  }
+  document.getElementById('upload').onclick=async()=>{
+    const list=[...files.files||[]]; if(!list.length){ msg.textContent='Избери снимки.'; return; }
+    msg.textContent='Качвам…';
+    try{ for(const f of list) await uploadDogPhoto(id,f); msg.textContent=`Качени: ${list.length} ✓`; files.value=''; load(); }
+    catch(err){ msg.textContent=err?.message||'Грешка'; }
+  };
+  load();
+</script>
+</body></html>
