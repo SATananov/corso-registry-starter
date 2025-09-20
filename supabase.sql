@@ -1,115 +1,129 @@
+-- Extensions
 create extension if not exists "pgcrypto";
 
--- PROFILES
+-- PROFILES (unchanged if you already have it)
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
-  username text unique not null,
-  display_name text not null,
-  role text not null default 'user' check (role in ('user','admin')),
+  username text unique,
+  display_name text,
+  role text check (role in ('user','admin')) default 'user',
   created_at timestamptz default now()
 );
 alter table public.profiles enable row level security;
 
-drop policy if exists "profiles public read"  on public.profiles;
-drop policy if exists "profiles self insert"  on public.profiles;
-drop policy if exists "profiles self update"  on public.profiles;
+-- self insert/update
+do $$ begin
+  create policy "profiles insert self"
+    on public.profiles for insert to authenticated
+    with check (auth.uid() = id);
+exception when duplicate_object then null end $$;
 
-create policy "profiles public read" on public.profiles for select using (true);
-create policy "profiles self insert" on public.profiles for insert with check (auth.uid() = id);
-create policy "profiles self update" on public.profiles for update using (auth.uid() = id) with check (auth.uid() = id);
+do $$ begin
+  create policy "profiles update self"
+    on public.profiles for update to authenticated
+    using (auth.uid() = id)
+    with check (auth.uid() = id);
+exception when duplicate_object then null end $$;
 
-create or replace function public.handle_new_user()
-returns trigger language plpgsql
-security definer set search_path = public as $$
-begin
-  insert into public.profiles (id,email,username,display_name,role)
-  values (
-    new.id, new.email,
-    coalesce(new.raw_user_meta_data->>'username', split_part(new.email,'@',1)),
-    coalesce(new.raw_user_meta_data->>'display_name',''), 'user'
-  )
-  on conflict (id) do nothing;
-  return new;
-end $$;
+-- Helper: is_admin()
+create or replace function public.is_admin() returns boolean
+language sql stable as $$
+  select exists(select 1 from public.profiles where id = auth.uid() and role = 'admin');
+$$;
 
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
-
--- LISTINGS (generic content)
-create table if not exists public.listings (
-  id uuid primary key default gen_random_uuid(),
-  owner_id uuid not null references auth.users(id) on delete cascade,
-  title text not null,
-  description text,
-  status text not null default 'draft' check (status in ('draft','pending','approved','rejected')),
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-alter table public.listings enable row level security;
-
-drop policy if exists "listings public read approved" on public.listings;
-drop policy if exists "listings owner write"           on public.listings;
-drop policy if exists "listings admin all"             on public.listings;
-
-create policy "listings public read approved" on public.listings for select using (status = 'approved');
-create policy "listings owner write"          on public.listings for insert with check (auth.uid() = owner_id);
-create policy "listings owner update"         on public.listings for update using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
-create policy "listings owner delete"         on public.listings for delete using (auth.uid() = owner_id);
-create policy "listings admin all"
-  on public.listings
-  to authenticated
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role='admin'))
-  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role='admin'));
-
--- PHOTOS
-create table if not exists public.photos (
+-- DOGS
+create table if not exists public.dogs (
   id bigserial primary key,
-  listing_id uuid not null references public.listings(id) on delete cascade,
-  path text not null unique,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  status text not null default 'pending' check (status in ('pending','approved','rejected')),
+
+  -- Cane Corso fields
+  name text not null,
+  sex text not null check (sex in ('male','female')),
+  date_of_birth date not null,
+  color text,
+  microchip_number text,
+  pedigree_number text,
+  spayed_neutered boolean default false,
+  sire_name text,
+  dam_name text,
+  breeder_name text,
+  notes text
+);
+alter table public.dogs enable row level security;
+
+-- RLS for dogs
+do $$ begin
+  create policy "dogs insert owner"
+    on public.dogs for insert to authenticated
+    with check (owner_id = auth.uid());
+exception when duplicate_object then null end $$;
+
+do $$ begin
+  create policy "dogs update owner"
+    on public.dogs for update to authenticated
+    using (owner_id = auth.uid())
+    with check (owner_id = auth.uid());
+exception when duplicate_object then null end $$;
+
+do $$ begin
+  create policy "dogs delete owner"
+    on public.dogs for delete to authenticated
+    using (owner_id = auth.uid());
+exception when duplicate_object then null end $$;
+
+do $$ begin
+  create policy "dogs read approved or own or admin"
+    on public.dogs for select to anon, authenticated
+    using ( status = 'approved' or owner_id = auth.uid() or public.is_admin() );
+exception when duplicate_object then null end $$;
+
+do $$ begin
+  create policy "dogs admin update"
+    on public.dogs for update to authenticated
+    using (public.is_admin()) with check (true);
+exception when duplicate_object then null end $$;
+
+do $$ begin
+  create policy "dogs admin delete"
+    on public.dogs for delete to authenticated
+    using (public.is_admin());
+exception when duplicate_object then null end $$;
+
+-- DOG PHOTOS
+create table if not exists public.dog_photos (
+  id bigserial primary key,
+  dog_id bigint not null references public.dogs(id) on delete cascade,
+  path text not null,
   created_at timestamptz default now()
 );
-alter table public.photos enable row level security;
+alter table public.dog_photos enable row level security;
 
-drop policy if exists "photos public read via approved parent" on public.photos;
-drop policy if exists "photos owner write"                     on public.photos;
-drop policy if exists "photos admin all"                       on public.photos;
+-- RLS for dog_photos
+do $$ begin
+  create policy "dog_photos insert owner"
+    on public.dog_photos for insert to authenticated
+    with check (
+      exists (select 1 from public.dogs d where d.id = dog_id and d.owner_id = auth.uid())
+    );
+exception when duplicate_object then null end $$;
 
-create policy "photos public read via approved parent"
-  on public.photos for select using (
-    exists (select 1 from public.listings l where l.id = photos.listing_id and l.status = 'approved')
-  );
-create policy "photos owner write"
-  on public.photos for insert with check (
-    exists (select 1 from public.listings l where l.id = photos.listing_id and l.owner_id = auth.uid())
-  );
-create policy "photos owner update"
-  on public.photos for update using (
-    exists (select 1 from public.listings l where l.id = photos.listing_id and l.owner_id = auth.uid())
-  ) with check (
-    exists (select 1 from public.listings l where l.id = photos.listing_id and l.owner_id = auth.uid())
-  );
-create policy "photos owner delete"
-  on public.photos for delete using (
-    exists (select 1 from public.listings l where l.id = photos.listing_id and l.owner_id = auth.uid())
-  );
-create policy "photos admin all"
-  on public.photos
-  to authenticated
-  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role='admin'))
-  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.role='admin'));
+do $$ begin
+  create policy "dog_photos delete owner or admin"
+    on public.dog_photos for delete to authenticated
+    using (
+      exists (select 1 from public.dogs d where d.id = dog_id and d.owner_id = auth.uid())
+      or public.is_admin()
+    );
+exception when duplicate_object then null end $$;
 
--- STORAGE bucket (public read)
-select storage.create_bucket('photos', public := true);
-
-drop policy if exists "photos public read" on storage.objects;
-drop policy if exists "photos user write own" on storage.objects;
-drop policy if exists "photos user update own" on storage.objects;
-drop policy if exists "photos user delete own" on storage.objects;
-
-create policy "photos public read"  on storage.objects for select using (bucket_id = 'photos');
-create policy "photos user write own" on storage.objects for insert to authenticated with check (bucket_id='photos' and split_part(name,'/',1)=auth.uid()::text);
-create policy "photos user update own" on storage.objects for update to authenticated using (bucket_id='photos' and split_part(name,'/',1)=auth.uid()::text);
-create policy "photos user delete own" on storage.objects for delete to authenticated using (bucket_id='photos' and split_part(name,'/',1)=auth.uid()::text);
+do $$ begin
+  create policy "dog_photos read public/own/admin"
+    on public.dog_photos for select to anon, authenticated
+    using (
+      exists (select 1 from public.dogs d
+              where d.id = dog_id and (d.status='approved' or d.owner_id = auth.uid() or public.is_admin()))
+    );
+exception when duplicate_object then null end $$;
