@@ -9,15 +9,14 @@ export const supabase = createClient(
 // ---------- AUTH ----------
 export async function getSession(){ return (await supabase.auth.getSession()).data.session; }
 export async function currentUser(){ return (await supabase.auth.getUser()).data.user; }
-export function onAuthChanged(cb){ return supabase.auth.onAuthStateChange((_e, sess)=>cb(sess)); }
+export function onAuthChanged(cb){ return supabase.auth.onAuthStateChange((_e, s)=>cb(s)); }
 export async function signOut(){ await supabase.auth.signOut(); }
 
 // ---------- PROFILES ----------
 export async function getMyProfile(){
   const u = await currentUser(); if(!u) return null;
   const { data, error } = await supabase.from('profiles')
-    .select('id,email,username,display_name,role')
-    .eq('id', u.id).maybeSingle();
+    .select('id,email,username,display_name,role').eq('id', u.id).maybeSingle();
   if(error) throw error;
   return data;
 }
@@ -28,106 +27,89 @@ export async function upsertMyProfile({ display_name, username }){
   if(error) throw error;
 }
 export async function fetchProfilesMap(ids){
-  const uniq = [...new Set((ids||[]).filter(Boolean))];
-  if(!uniq.length) return {};
-  const { data, error } = await supabase.from('profiles')
-    .select('id,display_name,username').in('id', uniq);
-  if(error) throw error;
-  const m={}; for(const r of data) m[r.id] = r.display_name || r.username || r.id.slice(0,8)+'…';
-  return m;
+  const uniq=[...new Set((ids||[]).filter(Boolean))]; if(!uniq.length) return {};
+  const { data, error } = await supabase.from('profiles').select('id,display_name,username').in('id', uniq);
+  if(error) throw error; const m={}; for(const r of data) m[r.id]=r.display_name||r.username||r.id.slice(0,8)+'…'; return m;
 }
 
-// ---------- LISTINGS ----------
-export async function createListing({ title, description }){
+// ---------- DOGS ----------
+export async function createDog(payload){
   const u = await currentUser(); if(!u) throw new Error('Not authenticated');
-  const { error } = await supabase.from('listings').insert([{ title, description }]);
+  // server-side default owner_id via RLS, но подаваме за яснота:
+  const row = { ...payload, owner_id: u.id };
+  const { error } = await supabase.from('dogs').insert([row]);
   if(error) throw error;
 }
-export async function fetchMyListings(){
+export async function fetchMyDogs(){
   const u = await currentUser(); if(!u) throw new Error('Not authenticated');
-  const { data, error } = await supabase.from('listings')
-    .select('*').eq('owner_id', u.id).order('created_at', { ascending:false });
-  if(error) throw error;
-  return data;
+  const { data, error } = await supabase.from('dogs')
+    .select('*').eq('owner_id', u.id).order('created_at',{ascending:false});
+  if(error) throw error; return data;
 }
-export async function updateMyListing(id, fields){
+export async function updateMyDog(id, fields){
   const u = await currentUser(); if(!u) throw new Error('Not authenticated');
-  const { error } = await supabase.from('listings')
-    .update(fields).eq('id', id).eq('owner_id', u.id);
+  const { error } = await supabase.from('dogs').update(fields).eq('id', id).eq('owner_id', u.id);
   if(error) throw error;
 }
-export async function deleteMyListing(id){
+export async function deleteMyDog(id){
   const u = await currentUser(); if(!u) throw new Error('Not authenticated');
-  // 1) изтрий файловете в bucket (ако има)
-  const { data: photos } = await supabase.from('photos').select('id,path').eq('listing_id', id);
-  if (photos?.length){
-    await supabase.storage.from('photos').remove(photos.map(p=>p.path));
-    await supabase.from('photos').delete().eq('listing_id', id);
-  }
-  // 2) изтрий записа
-  const { error } = await supabase.from('listings').delete().eq('id', id).eq('owner_id', u.id);
+  const { data: photos } = await supabase.from('dog_photos').select('path').eq('dog_id', id);
+  if(photos?.length) await supabase.storage.from('dogphotos').remove(photos.map(p=>p.path));
+  await supabase.from('dog_photos').delete().eq('dog_id', id);
+  const { error } = await supabase.from('dogs').delete().eq('id', id).eq('owner_id', u.id);
   if(error) throw error;
 }
-export async function fetchApprovedListings({ q='', limit=50, offset=0 }={}){
-  let qry = supabase.from('listings').select('*', { count:'exact' }).eq('status','approved')
-    .order('created_at', { ascending:false }).range(offset, offset+limit-1);
+export async function fetchApprovedDogs({ q='', limit=50, offset=0 }={}){
+  let qry = supabase.from('dogs').select('*', { count:'exact' })
+    .eq('status','approved').order('created_at',{ascending:false})
+    .range(offset, offset+limit-1);
   if(q && q.trim()){
     const s = `%${q.trim()}%`;
-    // ако имаш GIN/fts – смени със to_tsvector; за basic: ilike на title/description
-    qry = qry.or(`title.ilike.${s},description.ilike.${s}`);
+    qry = qry.or(`name.ilike.${s},color.ilike.${s},microchip_number.ilike.${s},pedigree_number.ilike.${s}`);
   }
   const { data, error, count } = await qry;
   if(error) throw error;
   return { rows: data, count };
 }
-export async function fetchListingApproved(id){
-  const { data, error } = await supabase.from('listings').select('*')
+export async function fetchDogApproved(id){
+  const { data, error } = await supabase.from('dogs').select('*')
     .eq('id', id).eq('status','approved').maybeSingle();
-  if(error) throw error;
-  return data;
+  if(error) throw error; return data;
 }
 
 // ---------- ADMIN ----------
-export async function fetchPendingListings(){
-  const { data, error } = await supabase.from('listings').select('*')
+export async function fetchPendingDogs(){
+  const { data, error } = await supabase.from('dogs').select('*')
     .eq('status','pending').order('created_at',{ascending:true});
-  if(error) throw error;
-  return data;
+  if(error) throw error; return data;
 }
-export async function fetchAllListings(limit=100){
-  const { data, error } = await supabase.from('listings').select('*')
+export async function fetchAllDogs(limit=100){
+  const { data, error } = await supabase.from('dogs').select('*')
     .order('created_at',{ascending:false}).limit(limit);
-  if(error) throw error;
-  return data;
+  if(error) throw error; return data;
 }
-export async function setListingStatus(id, status){
-  const { error } = await supabase.from('listings').update({ status }).eq('id', id);
+export async function setDogStatus(id, status){
+  const { error } = await supabase.from('dogs').update({ status }).eq('id', id);
   if(error) throw error;
 }
 
-// ---------- PHOTOS ----------
-export function publicUrl(path){ return supabase.storage.from('photos').getPublicUrl(path).data.publicUrl; }
+// ---------- DOG PHOTOS ----------
+export function publicUrl(path){ return supabase.storage.from('dogphotos').getPublicUrl(path).data.publicUrl; }
 
-export async function listPhotos(listing_id){
-  const { data, error } = await supabase.from('photos')
-    .select('*').eq('listing_id', listing_id).order('created_at',{ascending:false});
-  if(error) throw error;
-  return data;
+export async function listDogPhotos(dog_id){
+  const { data, error } = await supabase.from('dog_photos').select('*')
+    .eq('dog_id', dog_id).order('created_at',{ascending:false});
+  if(error) throw error; return data;
 }
-export async function uploadPhoto(listing_id, file){
-  const u = await currentUser(); if(!u) throw new Error('Not authenticated');
+export async function uploadDogPhoto(dog_id, file){
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-  const path = `${listing_id}/${crypto.randomUUID?.():Date.now()}.${ext}`;
-  const { error: upErr } = await supabase.storage.from('photos').upload(path, file, { upsert:false, cacheControl:'3600' });
+  const path = `${dog_id}/${crypto.randomUUID?.():Date.now()}.${ext}`;
+  const { error: upErr } = await supabase.storage.from('dogphotos').upload(path, file, { upsert:false, cacheControl:'3600' });
   if(upErr) throw upErr;
-  const { error } = await supabase.from('photos').insert([{ listing_id, path }]);
-  if(error){ // rollback storage
-    await supabase.storage.from('photos').remove([path]);
-    throw error;
-  }
+  const { error } = await supabase.from('dog_photos').insert([{ dog_id, path }]);
+  if(error){ await supabase.storage.from('dogphotos').remove([path]).catch(()=>{}); throw error; }
 }
-export async function deletePhoto(photo_id, path){
-  const { error } = await supabase.from('photos').delete().eq('id', photo_id);
-  if(error) throw error;
-  await supabase.storage.from('photos').remove([path]).catch(()=>{});
+export async function deleteDogPhoto(photo_id, path){
+  const { error } = await supabase.from('dog_photos').delete().eq('id', photo_id);
+  if(error) throw error; await supabase.storage.from('dogphotos').remove([path]).catch(()=>{});
 }
