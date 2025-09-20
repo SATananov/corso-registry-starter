@@ -2,17 +2,17 @@
 <html lang="bg">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Нов запис</title>
+  <title>Нов Cane Corso запис</title>
   <link rel="stylesheet" href="styles.css">
+  <style>.grid{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(160px,1fr))} @media(max-width:800px){.grid{grid-template-columns:1fr}}</style>
 </head>
 <body>
 <header class="topbar">
-  <div class="brand"><a href="index.html"><strong>Listings Starter</strong></a> <span class="tag">New</span></div>
+  <div class="brand"><a href="index.html"><strong>Регистър Cane Corso</strong></a> <span class="tag">Нов запис</span></div>
   <nav class="nav">
     <a href="index.html">Начало</a>
     <a href="catalog.html">Каталог</a>
     <a data-if-admin href="admin.html">Админ</a>
-
     <a data-if-authed href="my.html">Моите</a>
     <a data-if-authed href="#" data-logout>Изход</a>
     <a data-if-anon href="login.html" class="btn">Вход</a>
@@ -20,25 +20,69 @@
 </header>
 
 <main class="container">
-  <section class="card" style="max-width:720px;margin-inline:auto">
-    <h1>Подай нов запис</h1>
+  <section class="card" style="max-width:980px;margin-inline:auto">
+    <h1>Подай нов Cane Corso запис</h1>
     <form id="form" class="form">
-      <label class="field">
-        <span>Заглавие *</span>
-        <input name="title" required maxlength="120" placeholder="Кратко заглавие" />
-      </label>
-      <label class="field">
-        <span>Описание</span>
-        <textarea name="description" rows="6" placeholder="Подробности…"></textarea>
-      </label>
-      <button class="btn primary" type="submit">Изпрати за одобрение</button>
+      <div class="grid">
+        <label class="field"><span>Име *</span><input name="name" required></label>
+        <label class="field"><span>Пол *</span>
+          <select name="sex" required>
+            <option value="male">♂ мъжко</option>
+            <option value="female">♀ женско</option>
+          </select>
+        </label>
+        <label class="field"><span>Дата на раждане *</span><input type="date" name="date_of_birth" required></label>
+        <label class="field"><span>Цвят</span><input name="color" placeholder="черно / сиво / тигрово / фауън…"></label>
+
+        <label class="field"><span>Микрочип</span><input name="microchip_number" placeholder="15 цифри"></label>
+        <label class="field"><span>№ Родословие</span><input name="pedigree_number"></label>
+
+        <label class="field"><span>Кастрирано</span><select name="spayed_neutered"><option value="false">Не</option><option value="true">Да</option></select></label>
+        <div></div>
+
+        <label class="field"><span>Баща (sire)</span><input name="sire_name"></label>
+        <label class="field"><span>Майка (dam)</span><input name="dam_name"></label>
+        <label class="field"><span>Развъдчик</span><input name="breeder_name"></label>
+      </div>
+
+      <label class="field"><span>Бележки</span><textarea name="notes" rows="4"></textarea></label>
+
+      <button class="btn primary">Изпрати за одобрение</button>
       <div id="msg" class="muted" style="margin-top:8px"></div>
     </form>
   </section>
 </main>
 
 <script type="module" src="js/app.js"></script>
-<script type="module" src="js/new.js"></script>
-</body>
-</html>
+<script type="module">
+  import { bootstrap, requireAuth } from './js/app.js';
+  import { createDog } from './js/api.js';
+  bootstrap(); await requireAuth('login.html');
+
+  const form=document.getElementById('form'), msg=document.getElementById('msg');
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const fd=new FormData(form);
+    const payload={
+      name: fd.get('name')?.toString().trim(),
+      sex: fd.get('sex'),
+      date_of_birth: fd.get('date_of_birth'),
+      color: fd.get('color')?.toString().trim() || null,
+      microchip_number: fd.get('microchip_number')?.toString().trim() || null,
+      pedigree_number: fd.get('pedigree_number')?.toString().trim() || null,
+      spayed_neutered: fd.get('spayed_neutered')==='true',
+      sire_name: fd.get('sire_name')?.toString().trim() || null,
+      dam_name: fd.get('dam_name')?.toString().trim() || null,
+      breeder_name: fd.get('breeder_name')?.toString().trim() || null,
+      notes: fd.get('notes')?.toString().trim() || null
+    };
+    try{
+      msg.textContent='Записвам…';
+      await createDog(payload);
+      msg.textContent='Изпратено за одобрение. След одобрение ще се вижда в каталога.';
+      form.reset();
+    }catch(err){ msg.textContent = err?.message || 'Грешка.'; }
+  });
+</script>
+</body></html>
 
