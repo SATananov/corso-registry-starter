@@ -2,23 +2,24 @@
 <html lang="bg">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Детайли</title>
+  <title>Профил на Cane Corso</title>
   <link rel="stylesheet" href="styles.css">
   <style>
-    .hero{display:grid;gap:10px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+    .grid{display:grid;grid-template-columns:1.1fr 1fr;gap:14px}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}}
+    .photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
     .ph{background:#0e1420;border:1px solid var(--border);border-radius:12px;padding:8px}
     .ph img{width:100%;height:160px;object-fit:cover;border-radius:8px}
+    .facts div{padding:6px 0;border-bottom:1px dashed var(--border)}
   </style>
 </head>
 <body>
 <header class="topbar">
-  <div class="brand"><a href="index.html"><strong>Listings Starter</strong></a> <span class="tag">Детайли</span></div>
+  <div class="brand"><a href="index.html"><strong>Регистър Cane Corso</strong></a> <span class="tag">Детайли</span></div>
   <nav class="nav">
     <a href="index.html">Начало</a>
     <a href="catalog.html">Каталог</a>
     <a data-if-admin href="admin.html">Админ</a>
-
     <a data-if-authed href="my.html">Моите</a>
     <a data-if-authed href="#" data-logout>Изход</a>
     <a data-if-anon href="login.html" class="btn">Вход</a>
@@ -26,14 +27,55 @@
 </header>
 
 <main class="container">
-  <section class="card hero" id="head">Зареждам…</section>
+  <section class="card grid">
+    <div id="main">Зареждам…</div>
+    <div class="facts" id="facts"></div>
+  </section>
+
   <section class="card">
     <h2>Снимки</h2>
-    <div id="grid" class="grid">—</div>
+    <div id="photos" class="photos">—</div>
   </section>
 </main>
 
 <script type="module" src="js/app.js"></script>
-<script type="module" src="js/details.js"></script>
-</body>
-</html>
+<script type="module">
+  import { bootstrap } from './js/app.js';
+  import { fetchDogApproved, listDogPhotos, publicUrl, fetchProfilesMap } from './js/api.js';
+  bootstrap();
+
+  const id=new URLSearchParams(location.search).get('id');
+  const main=document.getElementById('main'), facts=document.getElementById('facts'), photos=document.getElementById('photos');
+  const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  function sexLabel(s){ return s==='male'?'♂ мъжко':'♀ женско'; }
+
+  (async ()=>{
+    if(!id){ main.textContent='Липсва id'; return; }
+    try{
+      const d=await fetchDogApproved(id);
+      if(!d){ main.innerHTML='<div class="muted">Записът не е намерен/одобрен.</div>'; photos.textContent='—'; return; }
+      const map=await fetchProfilesMap([d.owner_id]);
+
+      main.innerHTML=`
+        <h1>${esc(d.name)} <span class="badge">${sexLabel(d.sex)}</span></h1>
+        <div class="muted">Собственик: ${esc(map[d.owner_id]||'—')} · Създаден: ${new Date(d.created_at).toLocaleString()}</div>
+        <p>${esc(d.notes||'')}</p>
+      `;
+      facts.innerHTML=`
+        <div><strong>Дата на раждане:</strong> ${esc(d.date_of_birth||'—')}</div>
+        <div><strong>Цвят:</strong> ${esc(d.color||'—')}</div>
+        <div><strong>Микрочип:</strong> ${esc(d.microchip_number||'—')}</div>
+        <div><strong>Родословие:</strong> ${esc(d.pedigree_number||'—')}</div>
+        <div><strong>Кастрирано:</strong> ${d.spayed_neutered?'Да':'Не'}</div>
+        <div><strong>Баща:</strong> ${esc(d.sire_name||'—')}</div>
+        <div><strong>Майка:</strong> ${esc(d.dam_name||'—')}</div>
+        <div><strong>Развъдчик:</strong> ${esc(d.breeder_name||'—')}</div>
+      `;
+
+      const ps=await listDogPhotos(id);
+      if(!ps.length){ photos.innerHTML='<div class="muted">Няма снимки.</div>'; return; }
+      photos.innerHTML=ps.map(p=>`<div class="ph"><img src="${esc(publicUrl(p.path))}" alt=""></div>`).join('');
+    }catch(e){ main.innerHTML=`<div class="muted">Грешка: ${esc(e?.message||e)}</div>`; }
+  })();
+</script>
+</body></html>
