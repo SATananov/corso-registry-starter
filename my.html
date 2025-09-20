@@ -2,7 +2,7 @@
 <html lang="bg">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Моите записи</title>
+  <title>Моите Cane Corso</title>
   <link rel="stylesheet" href="styles.css">
   <style>
     .table{width:100%;border-collapse:collapse}
@@ -18,12 +18,11 @@
 </head>
 <body>
 <header class="topbar">
-  <div class="brand"><a href="index.html"><strong>Listings Starter</strong></a> <span class="tag">Моите</span></div>
+  <div class="brand"><a href="index.html"><strong>Регистър Cane Corso</strong></a> <span class="tag">Моите</span></div>
   <nav class="nav">
     <a href="index.html">Начало</a>
     <a href="catalog.html">Каталог</a>
     <a data-if-admin href="admin.html">Админ</a>
-
     <a data-if-authed href="new.html" class="btn">Нов запис</a>
     <a data-if-authed href="#" data-logout>Изход</a>
     <a data-if-anon href="login.html" class="btn">Вход</a>
@@ -32,12 +31,61 @@
 
 <main class="container">
   <section class="card">
-    <h1>Моите записи</h1>
+    <h1>Моите кучета</h1>
     <div id="wrap">Зареждам…</div>
   </section>
 </main>
 
 <script type="module" src="js/app.js"></script>
-<script type="module" src="js/my.js"></script>
-</body>
-</html>
+<script type="module">
+  import { bootstrap, requireAuth } from './js/app.js';
+  import { fetchMyDogs, updateMyDog, deleteMyDog } from './js/api.js';
+  bootstrap(); await requireAuth('login.html');
+
+  const wrap=document.getElementById('wrap');
+  const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+  async function load(){
+    wrap.textContent='Зареждам…';
+    try{
+      const rows=await fetchMyDogs();
+      if(!rows.length){ wrap.innerHTML='<div class="muted">Нямаш записи.</div>'; return; }
+      wrap.innerHTML=`
+        <table class="table">
+          <thead><tr><th>Име</th><th>Цвят</th><th>Микрочип</th><th>Статус</th><th>Действия</th></tr></thead>
+          <tbody>
+            ${rows.map(r=>`
+              <tr data-id="${r.id}">
+                <td><input class="editable" name="name" value="${esc(r.name)}"></td>
+                <td><input class="editable" name="color" value="${esc(r.color||'')}"></td>
+                <td><input class="editable" name="microchip_number" value="${esc(r.microchip_number||'')}"></td>
+                <td><span class="muted-small">${esc(r.status)}</span></td>
+                <td class="actions">
+                  <button class="pill save">Запази</button>
+                  <a class="pill photos" href="photos.html?id=${r.id}">Снимки</a>
+                  <button class="pill delete">Изтрий</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      wrap.querySelectorAll('.pill.save').forEach(b=> b.onclick=async e=>{
+        const tr=e.target.closest('tr'), id=tr.dataset.id;
+        const name=tr.querySelector('[name="name"]').value.trim();
+        const color=tr.querySelector('[name="color"]').value.trim()||null;
+        const micro=tr.querySelector('[name="microchip_number"]').value.trim()||null;
+        if(!name){ alert('Името е задължително.'); return; }
+        try{ await updateMyDog(id,{ name, color, microchip_number: micro }); e.target.textContent='Записано ✓'; setTimeout(()=>e.target.textContent='Запази',800); }
+        catch(err){ alert(err?.message||'Грешка'); }
+      });
+      wrap.querySelectorAll('.pill.delete').forEach(b=> b.onclick=async e=>{
+        const id=e.target.closest('tr').dataset.id;
+        if(!confirm('Да изтрия записа?')) return;
+        try{ await deleteMyDog(id); e.target.closest('tr').remove(); }catch(err){ alert(err?.message||'Грешка'); }
+      });
+    }catch(e){ wrap.innerHTML=`<div class="muted">Грешка: ${esc(e?.message||e)}</div>`; }
+  }
+  load();
+</script>
+</body></html>
